@@ -1,213 +1,193 @@
-const API_URL = 'http://localhost:5000';
+const API_URL = 'http://127.0.0.1:5000';
+let users = [];
 
-let usersData = [];
 const userModal = new bootstrap.Modal(document.getElementById('userModal'));
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     loadUsers();
-    setupEventListeners();
+    setupForm();
 });
 
-// Настройка обработчиков событий
-function setupEventListeners() {
-    // Форма добавления пользователя
-    document.getElementById('addUserForm').addEventListener('submit', handleAddUser);
+function setupForm() {
+    const form = document.getElementById('addUserForm');
+    form.addEventListener('submit', handleAddUser);
 }
 
 async function loadUsers() {
-    const loadingSpinner = document.getElementById('loadingSpinner');
-    const usersTable = document.getElementById('usersTable');
+    const spinner = document.getElementById('loadingSpinner');
+    const tableWrapper = document.getElementById('usersTableWrapper');
+    const meta = document.getElementById('usersMeta');
+
+    spinner.classList.remove('d-none');
+    tableWrapper.classList.add('d-none');
 
     try {
-        loadingSpinner.classList.remove('d-none');
-        usersTable.classList.add('d-none');
-
-        const response = await fetch(`${API_URL}/users`);
-
-        if (!response.ok) {
-            throw new Error(`Ошибка загрузки: ${response.status}`);
+        const res = await fetch(`${API_URL}/users`);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
         }
+        users = await res.json();
 
-        usersData = await response.json();
-        displayUsers(usersData);
-
-        loadingSpinner.classList.add('d-none');
-        usersTable.classList.remove('d-none');
-
-    } catch (error) {
-        loadingSpinner.classList.add('d-none');
-        showMessage('Ошибка загрузки пользователей: ' + error.message, 'danger');
-        console.error('Ошибка:', error);
+        renderUsersTable(users);
+        meta.textContent = `${users.length} user${users.length === 1 ? '' : 's'}`;
+        spinner.classList.add('d-none');
+        tableWrapper.classList.remove('d-none');
+    } catch (e) {
+        spinner.classList.add('d-none');
+        showMessage('Failed to load users. Please try again.', 'danger');
+        console.error(e);
     }
 }
 
-// Отображение пользователей в таблице
-function displayUsers(users) {
+function renderUsersTable(list) {
     const tbody = document.getElementById('usersTableBody');
     tbody.innerHTML = '';
 
-    if (users.length === 0) {
+    if (!list.length) {
         tbody.innerHTML = `
-            <tr>
-                <td colspan="4" class="text-center text-muted">
-                    Пользователи не найдены
-                </td>
-            </tr>
-        `;
+          <tr>
+            <td colspan="4" class="text-center text-muted py-4 small">
+              No users found.
+            </td>
+          </tr>`;
         return;
     }
 
-    users.forEach(user => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${user.id}</td>
-            <td>${escapeHtml(user.name)}</td>
-            <td>${escapeHtml(user.email)}</td>
-            <td>
-                <button class="btn btn-sm btn-info" onclick="showUserDetails(${user.id})">
-                    Подробнее
-                </button>
-            </td>
+    list.forEach((user) => {
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+          <td>${user.id}</td>
+          <td>${escapeHtml(user.name)}</td>
+          <td>${escapeHtml(user.email)}</td>
+          <td class="text-end">
+            <button type="button" class="btn btn-outline-secondary btn-view-user" data-user-id="${user.id}">
+              View
+            </button>
+          </td>
         `;
 
-        // Клик по строке тоже показывает детали
-        row.addEventListener('click', (e) => {
-            if (e.target.tagName !== 'BUTTON') {
-                showUserDetails(user.id);
-            }
+        const viewButton = tr.querySelector('[data-user-id]');
+        viewButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const id = Number(viewButton.getAttribute('data-user-id'));
+            if (id) openUserModal(id);
         });
 
-        tbody.appendChild(row);
+        tbody.appendChild(tr);
     });
 }
 
-async function showUserDetails(userId) {
-    const modalContent = document.getElementById('userDetailsContent');
+async function openUserModal(userId) {
+    const content = document.getElementById('userDetailsContent');
+    content.innerHTML = `
+        <div class="text-center py-3">
+          <div class="spinner-border spinner-border-sm text-secondary" role="status"></div>
+        </div>
+      `;
+    userModal.show();
 
     try {
-        modalContent.innerHTML = `
-            <div class="text-center">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Загрузка...</span>
-                </div>
-            </div>
-        `;
-
-        userModal.show();
-
-        const response = await fetch(`${API_URL}/users/${userId}`);
-
-        if (!response.ok) {
-            if (response.status === 404) {
-                throw new Error('Пользователь не найден');
+        const res = await fetch(`${API_URL}/users/${userId}`);
+        if (!res.ok) {
+            if (res.status === 404) {
+                throw new Error('User not found');
             }
-            throw new Error(`Ошибка: ${response.status}`);
+            throw new Error(`HTTP ${res.status}`);
         }
+        const user = await res.json();
 
-        const user = await response.json();
-
-        modalContent.innerHTML = `
-            <div class="user-detail-item">
-                <div class="user-detail-label">🆔 ID:</div>
-                <div>${user.id}</div>
+        content.innerHTML = `
+          <div class="user-detail-row">
+            <div class="user-detail-label">ID</div>
+            <div class="user-detail-value">${user.id}</div>
+          </div>
+          <div class="user-detail-row">
+            <div class="user-detail-label">Name</div>
+            <div class="user-detail-value">${escapeHtml(user.name)}</div>
+          </div>
+          <div class="user-detail-row">
+            <div class="user-detail-label">Email</div>
+            <div class="user-detail-value">
+              <a href="mailto:${escapeHtml(user.email)}" class="link-body-emphasis">
+                ${escapeHtml(user.email)}
+              </a>
             </div>
-            <div class="user-detail-item">
-                <div class="user-detail-label">👤 Имя:</div>
-                <div>${escapeHtml(user.name)}</div>
-            </div>
-            <div class="user-detail-item">
-                <div class="user-detail-label">📧 Email:</div>
-                <div><a href="mailto:${user.email}">${escapeHtml(user.email)}</a></div>
-            </div>
+          </div>
         `;
-
-    } catch (error) {
-        modalContent.innerHTML = `
-            <div class="alert alert-danger">
-                ${error.message}
-            </div>
+    } catch (e) {
+        content.innerHTML = `
+          <div class="alert alert-danger mb-0">
+            ${e.message || 'Failed to load user.'}
+          </div>
         `;
-        console.error('Ошибка:', error);
     }
 }
 
-async function handleAddUser(e) {
-    e.preventDefault();
+async function handleAddUser(event) {
+    event.preventDefault();
 
     const nameInput = document.getElementById('userName');
     const emailInput = document.getElementById('userEmail');
-    const submitButton = e.target.querySelector('button[type="submit"]');
+    const button = event.target.querySelector('button[type="submit"]');
 
     const name = nameInput.value.trim();
     const email = emailInput.value.trim();
 
     if (!name || !email) {
-        showMessage('Заполните все поля', 'warning');
+        showMessage('Fill in all fields.', 'warning');
         return;
     }
 
-    try {
-        // Блокировать кнопку
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Добавление...';
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = 'Saving...';
 
-        const response = await fetch(`${API_URL}/users`, {
+    try {
+        const res = await fetch(`${API_URL}/users`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ name, email })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, email }),
         });
 
-        const data = await response.json();
+        const data = await res.json();
 
-        if (response.ok) {
-            showMessage('✅ Пользователь успешно добавлен!', 'success');
-
-            // Очистить форму
-            nameInput.value = '';
-            emailInput.value = '';
-
-            // Обновить список без перезагрузки страницы
-            await loadUsers();
-
-        } else {
-            showMessage('❌ ' + (data.error || 'Ошибка добавления пользователя'), 'danger');
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to create user.');
         }
 
-    } catch (error) {
-        showMessage('❌ Ошибка соединения: ' + error.message, 'danger');
-        console.error('Ошибка:', error);
+        showMessage('User created successfully.', 'success');
+        nameInput.value = '';
+        emailInput.value = '';
+
+        await loadUsers();
+    } catch (e) {
+        showMessage(e.message, 'danger');
+        console.error(e);
     } finally {
-        // Разблокировка кнопки
-        submitButton.disabled = false;
-        submitButton.innerHTML = 'Добавить';
+        button.disabled = false;
+        button.textContent = originalText;
     }
 }
 
-// Показать сообщение (успех/ошибка)
-function showMessage(message, type) {
+function showMessage(message, type = 'info') {
     const container = document.getElementById('messageContainer');
-
     const alert = document.createElement('div');
-    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.className = `alert alert-${type} d-flex justify-content-between align-items-center`;
     alert.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `;
-
+        <span>${message}</span>
+        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close"></button>
+      `;
     container.appendChild(alert);
 
-    // Автоматически убираем через 5 секунд
     setTimeout(() => {
-        alert.remove();
-    }, 5000);
+        alert.classList.add('fade');
+        setTimeout(() => alert.remove(), 200);
+    }, 4000);
 }
 
-// Защита от XSS
 function escapeHtml(text) {
     const div = document.createElement('div');
-    div.textContent = text;
+    div.textContent = text ?? '';
     return div.innerHTML;
 }

@@ -7,5 +7,7 @@
     </content>
     <orderEntry type="jdk" jdkName="Python 3.13 (flask_users_app)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="bootstrap" level="application" />
+    <orderEntry type="library" name="inter" level="application" />
   </component>
 </module>
