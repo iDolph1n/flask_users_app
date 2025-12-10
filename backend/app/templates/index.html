@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Пользователи · Flask Users App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <!-- Bootstrap CSS -->
+    <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+            integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+            crossorigin="anonymous"
+    />
+
+    <!-- Наши стили из Flask static -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+<nav class="navbar navbar-light bg-white border-bottom shadow-sm">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1 app-logo">
+            FLASK USER APP
+        </span>
+        <span class="text-muted small">
+            Flask · SQLite · JS · Bootstrap
+        </span>
+    </div>
+</nav>
+
+<main class="container py-4">
+    <div id="alertPlaceholder"></div>
+
+    <div class="row g-3">
+        <!-- Форма добавления пользователя -->
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title mb-3">Добавить пользователя</h5>
+                    <form id="addUserForm" novalidate>
+                        <div class="mb-3">
+                            <label for="nameInput" class="form-label">Имя</label>
+                            <input
+                                    type="text"
+                                    class="form-control"
+                                    id="nameInput"
+                                    name="name"
+                                    required
+                                    minlength="2"
+                                    maxlength="100"
+                                    placeholder=""
+                            />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="emailInput" class="form-label">Email</label>
+                            <input
+                                    type="email"
+                                    class="form-control"
+                                    id="emailInput"
+                                    name="email"
+                                    required
+                                    maxlength="120"
+                                    placeholder=""
+                            />
+                        </div>
+
+                        <button type="submit" class="btn btn-primary btn-sm btn-add-user">
+                            <span class="btn-add-icon">+</span>
+                            Добавить
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Таблица пользователей -->
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Список пользователей</h5>
+                        <span class="text-muted small" id="usersMeta">0 пользователей</span>
+                    </div>
+
+                    <div
+                            id="loadingSpinner"
+                            class="d-flex align-items-center justify-content-center py-4 text-muted"
+                    >
+                        Загрузка пользователей...
+                    </div>
+
+                    <div id="usersTableWrapper" class="table-responsive d-none">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                            <tr>
+                                <th scope="col">ID</th>
+                                <th scope="col">Имя</th>
+                                <th scope="col">Email</th>
+                                <th scope="col" class="text-end">Действие</th>
+                            </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                            <!-- Заполняется через JS -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div
+                            id="emptyState"
+                            class="text-center text-muted py-4 d-none"
+                    >
+                        Пользователи не найдены.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Модальное окно информации о пользователе -->
+<div
+        class="modal fade"
+        id="userModal"
+        tabindex="-1"
+        aria-labelledby="userModalLabel"
+        aria-hidden="true"
+>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalLabel">Информация о пользователе</h5>
+                <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Закрыть"
+                ></button>
+            </div>
+            <div class="modal-body">
+                <div class="user-detail-row">
+                    <div class="user-detail-label">ID</div>
+                    <div class="user-detail-value" id="userDetailId"></div>
+                </div>
+                <div class="user-detail-row">
+                    <div class="user-detail-label">Имя</div>
+                    <div class="user-detail-value" id="userDetailName"></div>
+                </div>
+                <div class="user-detail-row">
+                    <div class="user-detail-label">Email</div>
+                    <div class="user-detail-value" id="userDetailEmail"></div>
+                </div>
+                <div class="user-detail-row">
+                    <div class="user-detail-label">Создан</div>
+                    <div class="user-detail-value" id="userDetailCreatedAt"></div>
+                </div>
+                <div class="user-detail-row">
+                    <div class="user-detail-label">Обновлён</div>
+                    <div class="user-detail-value" id="userDetailUpdatedAt"></div>
+                </div>
+                <div class="user-detail-row">
+                    <div class="user-detail-label">Активен</div>
+                    <div class="user-detail-value" id="userDetailIsActive"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        data-bs-dismiss="modal"
+                >
+                    Закрыть
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"
+></script>
+
+<!-- Наш скрипт -->
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
